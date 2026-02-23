@@ -1,0 +1,10 @@
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo
+.env
+.idea/
+.vscode/
+.claude/settings.local.json
+*.skill
+dist/
