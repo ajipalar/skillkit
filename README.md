@@ -40,7 +40,7 @@ skillkit/
 │   └── meta/              # Meta-skills (skills about building skills)
 │       └── skill-creator/ # How to create effective skills
 ├── template/              # Blank SKILL.md template for new skills
-├── LICENSE                # Apache 2.0
+├── LICENSE                # MIT
 ├── THIRD_PARTY_NOTICES.md # Attribution for third-party content
 └── README.md
 ```
@@ -95,6 +95,6 @@ The `skill-creator` meta-skill and the `template/SKILL.md` are sourced from [Ant
 
 ## License
 
-This project is licensed under the [Apache License 2.0](LICENSE).
+This project is licensed under the [MIT License](LICENSE).
 
 Individual skills may carry their own licenses. Check each skill's directory for a `LICENSE.txt` if present.
