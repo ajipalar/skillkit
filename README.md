@@ -61,11 +61,70 @@ Skills about building, evaluating, and iterating on other skills. These are firs
 
 The **skill-creator** meta-skill is included out of the box. It provides a comprehensive guide for creating effective skills, including initialization scripts, validation tools, and reference documentation on output patterns and workflows.
 
+## Installation
+
+Clone the repository and run the installer:
+
+```bash
+git clone https://github.com/your-username/skillkit.git
+cd skillkit
+./install.sh
+```
+
+The interactive installer will ask where to install (global or project-local) and which tool(s) to target.
+
+### Non-interactive usage
+
+```bash
+# Install globally for Claude Code
+./install.sh --global --claude
+
+# Install globally for Codex CLI
+./install.sh --global --codex
+
+# Install globally for all supported tools
+./install.sh --global --all
+
+# Install into the current project only
+./install.sh --project --claude
+
+# Overwrite existing installations
+./install.sh --force --global --all
+
+# Uninstall
+./install.sh --uninstall --global --claude
+```
+
+### Supported tools
+
+| Tool | Global path | Project path |
+|------|-------------|--------------|
+| [Claude Code](https://claude.com/claude-code) | `~/.claude/skills/` | `.claude/skills/` |
+| [Codex CLI](https://github.com/openai/codex) | `~/.agents/skills/` | `.agents/skills/` |
+
+Both tools use the same [SKILL.md format](https://agentskills.io), so each skill only needs to be written once.
+
+**Global** installs make skills available in every project. **Project** installs scope skills to the current directory only.
+
+### Manual installation
+
+If you prefer not to use the script, copy any skill directory to the appropriate path:
+
+```bash
+# Example: install skill-creator globally for Claude Code
+mkdir -p ~/.claude/skills/meta
+cp -R skills/meta/skill-creator ~/.claude/skills/meta/skill-creator
+
+# Example: install skill-creator globally for Codex CLI
+mkdir -p ~/.agents/skills/meta
+cp -R skills/meta/skill-creator ~/.agents/skills/meta/skill-creator
+```
+
 ## Getting Started
 
 ### Using a Skill
 
-Point your AI agent at any `SKILL.md` file. Most agent frameworks support loading instruction files directly. The agent reads the frontmatter to understand when the skill applies, then follows the markdown instructions.
+Once installed, your AI agent automatically discovers skills in its skills directory. The agent reads each skill's frontmatter to understand when it applies, then loads the full instructions on demand. You can also invoke a skill directly as a slash command (e.g., `/skill-creator`).
 
 ### Creating a New Skill
 
@@ -85,6 +144,11 @@ Point your AI agent at any `SKILL.md` file. Most agent frameworks support loadin
 4. Validate your skill:
    ```bash
    python skills/meta/skill-creator/scripts/quick_validate.py skills/core/my-new-skill
+   ```
+
+5. Re-run the installer to deploy your new skill:
+   ```bash
+   ./install.sh --force --global --all
    ```
 
 For detailed guidance on writing effective skills, see [`skills/meta/skill-creator/SKILL.md`](skills/meta/skill-creator/SKILL.md).
