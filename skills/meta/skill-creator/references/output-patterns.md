@@ -1,3 +1,5 @@
+<!-- Adapted from Anthropic's skills repo. Original copyright Anthropic, PBC (Apache 2.0). Modified 2026 — reworded to be model-agnostic. -->
+
 # Output Patterns
 
 Use these patterns when skills need to produce consistent, high-quality output.
@@ -79,4 +81,4 @@ Use UTC timestamps consistently across report generation
 Follow this style: type(scope): brief description, then detailed explanation.
 ```
 
-Examples help Claude understand the desired style and level of detail more clearly than descriptions alone.
+Examples help the agent understand the desired style and level of detail more clearly than descriptions alone.
