@@ -35,31 +35,22 @@ This format is inspired by [Anthropic's Agent Skills standard](https://agentskil
 ```
 skillkit/
 ├── skills/
-│   ├── core/              # General-purpose skills
-│   ├── compbio/           # Computational biology skills
-│   └── meta/              # Meta-skills (skills about building skills)
-│       └── skill-creator/ # How to create effective skills
+│   ├── skill-creator/     # Meta-skill: how to create effective skills
+│   └── <your-skill>/      # Each skill is a flat directory under skills/
+├── install.sh             # Installer for Claude Code, Codex CLI, etc.
 ├── template/              # Blank SKILL.md template for new skills
 ├── LICENSE                # MIT
 ├── THIRD_PARTY_NOTICES.md # Attribution for third-party content
 └── README.md
 ```
 
-## Skill Categories
+Skills live directly under `skills/<skill-name>/` — no category nesting. This flat structure matches what Claude Code and Codex CLI expect when scanning for skills.
 
-### Core (`skills/core/`)
+## Included Skills
 
-General-purpose skills broadly useful across domains. Examples: web research, blog writing, document creation, code review workflows.
+### skill-creator
 
-### Computational Biology (`skills/compbio/`)
-
-Domain-specific skills for comp bio workflows. Examples: bioinformatics pipelines, literature review and synthesis, data analysis, scientific writing, structural biology tools.
-
-### Meta (`skills/meta/`)
-
-Skills about building, evaluating, and iterating on other skills. These are first-class members of the project — they make skillkit self-documenting and help contributors write better skills.
-
-The **skill-creator** meta-skill is included out of the box. It provides a comprehensive guide for creating effective skills, including initialization scripts, validation tools, and reference documentation on output patterns and workflows.
+A meta-skill for building, evaluating, and iterating on other skills. Includes initialization scripts, validation tools, and reference documentation on output patterns and workflows.
 
 ## Installation
 
@@ -112,12 +103,10 @@ If you prefer not to use the script, copy any skill directory to the appropriate
 
 ```bash
 # Example: install skill-creator globally for Claude Code
-mkdir -p ~/.claude/skills/meta
-cp -R skills/meta/skill-creator ~/.claude/skills/meta/skill-creator
+cp -R skills/skill-creator ~/.claude/skills/skill-creator
 
 # Example: install skill-creator globally for Codex CLI
-mkdir -p ~/.agents/skills/meta
-cp -R skills/meta/skill-creator ~/.agents/skills/meta/skill-creator
+cp -R skills/skill-creator ~/.agents/skills/skill-creator
 ```
 
 ## Getting Started
@@ -128,22 +117,22 @@ Once installed, your AI agent automatically discovers skills in its skills direc
 
 ### Creating a New Skill
 
-1. Copy `template/SKILL.md` into a new directory under the appropriate category:
+1. Copy `template/SKILL.md` into a new directory under `skills/`:
    ```bash
-   mkdir skills/core/my-new-skill
-   cp template/SKILL.md skills/core/my-new-skill/SKILL.md
+   mkdir skills/my-new-skill
+   cp template/SKILL.md skills/my-new-skill/SKILL.md
    ```
 
 2. Or use the skill-creator's initialization script:
    ```bash
-   python skills/meta/skill-creator/scripts/init_skill.py my-new-skill --path skills/core
+   python skills/skill-creator/scripts/init_skill.py my-new-skill --path skills
    ```
 
 3. Edit the `SKILL.md` with your skill's name, description, and instructions.
 
 4. Validate your skill:
    ```bash
-   python skills/meta/skill-creator/scripts/quick_validate.py skills/core/my-new-skill
+   python skills/skill-creator/scripts/quick_validate.py skills/my-new-skill
    ```
 
 5. Re-run the installer to deploy your new skill:
@@ -151,7 +140,7 @@ Once installed, your AI agent automatically discovers skills in its skills direc
    ./install.sh --force --global --all
    ```
 
-For detailed guidance on writing effective skills, see [`skills/meta/skill-creator/SKILL.md`](skills/meta/skill-creator/SKILL.md).
+For detailed guidance on writing effective skills, see [`skills/skill-creator/SKILL.md`](skills/skill-creator/SKILL.md).
 
 ## Attribution
 

@@ -83,9 +83,9 @@ done
 discover_skills() {
     local skills=()
     while IFS= read -r skill_md; do
-        # Get path relative to SKILLS_DIR, e.g. meta/skill-creator/SKILL.md
+        # Get path relative to SKILLS_DIR, e.g. skill-creator/SKILL.md
         local rel="${skill_md#"$SKILLS_DIR"/}"
-        # Get the skill directory relative path, e.g. meta/skill-creator
+        # Get the skill directory name, e.g. skill-creator
         local skill_rel_dir
         skill_rel_dir="$(dirname "$rel")"
         skills+=("$skill_rel_dir")
