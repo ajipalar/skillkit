@@ -28,7 +28,6 @@ This format is inspired by [Anthropic's Agent Skills standard](https://agentskil
 - **Model-agnostic.** Skills must not rely on model-specific features or quirks. A well-written skill should work with Claude, GPT, Gemini, or any future model. Agnostic skills are more robust, more reusable, and future-proof.
 - **Format-agnostic.** The project adopts the `SKILL.md` convention with YAML frontmatter — a simple format that any tool can parse. No hard dependencies on any platform's tooling.
 - **Community-oriented.** Open source and designed to attract contributors across domains. Skills should be focused, well-documented, and principled.
-- **Blog-integrated.** The maintainer writes about AI in computational biology. Skills that support research, writing, and web interfacing are first-class citizens. The blog and the project are a flywheel — each improves the other.
 
 ## Repository Structure
 
