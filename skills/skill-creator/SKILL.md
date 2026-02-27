@@ -233,6 +233,27 @@ To avoid overwhelming users, avoid asking too many questions in a single message
 
 Conclude this step when there is a clear sense of the functionality the skill should support.
 
+#### Viability Assessment
+
+Before proceeding, evaluate whether the skill should exist as proposed. Push back on the user with clear reasoning when any of these apply:
+
+**Skill adds no value.** The requested skill covers general knowledge the agent already possesses. Example: "Create a skill that teaches how to write Python functions." Push back: explain that the agent already has this knowledge and a skill would add tokens without changing behavior. Ask what specific, non-obvious knowledge the user wants to capture.
+
+**Scope too broad.** The skill tries to cover too many unrelated domains. Example: "Create a skill for all DevOps tasks." Push back: suggest narrowing to a specific domain (e.g., Kubernetes deployment, CI/CD pipelines) and explain that broad skills become too large for the context window and too vague to be useful.
+
+**Scope too narrow.** The skill covers something so specific it will not be reused. Example: "Create a skill to rename these 3 files." Push back: explain this is better handled as a one-time task, not a reusable skill. Ask if there is a recurring pattern the user wants to capture.
+
+**Duplicates an existing skill.** The request overlaps significantly with a skill that already exists. Push back: point out the existing skill and suggest improving it instead of creating a new one.
+
+**Better solved differently.** The need is real but a skill is the wrong tool. A project-level CLAUDE.md instruction, a standalone script, or a simple alias may be more appropriate. Push back: suggest the better-fitting alternative and explain why.
+
+When pushing back, always:
+1. State the specific concern and reasoning
+2. Suggest an alternative (adjusted scope, different approach, or improving an existing skill)
+3. Ask the user to confirm, adjust, or abandon
+
+If the user disagrees and wants to proceed as-is after hearing the reasoning, respect their decision and continue to Step 2.
+
 ### Step 2: Planning the Reusable Skill Contents
 
 To turn concrete examples into an effective skill, analyze each example by:
