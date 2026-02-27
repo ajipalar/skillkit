@@ -43,6 +43,40 @@ Classify the user's intent:
   more concise" — focus on the specific request while also checking
   foundational criteria (Tier 1).
 
+### Viability Assessment
+
+After reading the skill, evaluate whether improving it would add value.
+Push back with clear reasoning when any of these apply:
+
+**Skill adds no value.** The skill covers general knowledge the agent
+already possesses. Improving it would not change agent behavior.
+Push back: explain that the skill restates baseline capabilities and
+recommend not improving it.
+
+**Scope too broad.** The skill tries to cover too many unrelated domains.
+Push back: recommend splitting into focused skills before improving.
+
+**Scope too narrow.** The skill covers something so specific it will not
+be reused. Push back: recommend not improving; the underlying task does
+not warrant a reusable skill.
+
+**Duplicates another skill.** The skill overlaps significantly with an
+existing skill. Push back: recommend merging the two skills rather than
+improving them separately.
+
+**Better solved differently.** The need is real but a skill is the wrong
+tool. A CLAUDE.md instruction, standalone script, alias, tool, hook,
+plugin, subagent, or agent team may be more appropriate. Push back:
+suggest the better-fitting alternative and explain why.
+
+When pushing back, always:
+1. State the specific concern and reasoning
+2. Suggest an alternative (split, merge, convert, or do not improve)
+3. Ask the user to confirm, adjust, or abandon
+
+If the user disagrees and wants to proceed after hearing the reasoning,
+respect their decision and continue to Step 2.
+
 ## Step 2: Run Automated Analysis
 
 Run the structural analysis script:
