@@ -9,6 +9,8 @@ set -euo pipefail
 #   add_skills.sh --source <path> --all [--claude] [--codex]
 #   add_skills.sh --discover [--search-path <path>]
 #   add_skills.sh --list --source <path>
+#   add_skills.sh --init                           (NEW: snapshot → manifest)
+#   add_skills.sh --sync [--registry <path>]       (NEW: manifest → project)
 # ─────────────────────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,6 +24,10 @@ FORCE=false
 DISCOVER=false
 LIST_ONLY=false
 SEARCH_PATH=""
+INIT_MANIFEST=false
+SYNC_MODE=false
+REGISTRY=""
+MANIFEST_FILE=".ai-manifest.yaml"
 
 # ─── Colors ──────────────────────────────────────────────────────────────────
 if [[ -t 1 ]]; then
@@ -57,6 +63,9 @@ Options:
   --discover            Find and print skill sources, then exit
   --list                List skills in the source, then exit
   --search-path <path>  Override discovery search path (default: parent of cwd)
+  --init                Create .ai-manifest.yaml from currently installed skills
+  --sync                Sync project skills from .ai-manifest.yaml
+  --registry <path>     Registry file for --sync (default: \$AI_CONFIG_DIR/registry.yaml)
   -h, --help            Show this help message
 EOF
 }
@@ -73,10 +82,18 @@ while [[ $# -gt 0 ]]; do
         --discover)    DISCOVER=true; shift ;;
         --list)        LIST_ONLY=true; shift ;;
         --search-path) SEARCH_PATH="$2"; shift 2 ;;
+        --init)        INIT_MANIFEST=true; shift ;;
+        --sync)        SYNC_MODE=true; shift ;;
+        --registry)    REGISTRY="$2"; shift 2 ;;
         -h|--help)     usage; exit 0 ;;
         *)             err "Unknown option: $1"; usage; exit 1 ;;
     esac
 done
+
+# ─── Helpers: path expansion ────────────────────────────────────────────────
+expand_path() {
+    echo "${1/#\~/$HOME}"
+}
 
 # ─── Discover skill sources ─────────────────────────────────────────────────
 discover_sources() {
@@ -188,6 +205,246 @@ resolve_tools() {
     fi
 }
 
+# ─── Manifest helpers ────────────────────────────────────────────────────────
+
+# Check if .ai-manifest.yaml exists in cwd
+manifest_exists() {
+    [[ -f "$MANIFEST_FILE" ]]
+}
+
+# Add a skill name to the manifest's skills list (idempotent)
+manifest_add_skill() {
+    local skill_name="$1"
+
+    if ! manifest_exists; then
+        return 0  # No manifest — silently skip
+    fi
+
+    if ! command -v yq &>/dev/null; then
+        warn "yq not installed — skipping manifest update (brew install yq)"
+        return 0
+    fi
+
+    # Check if skill already in manifest
+    local already
+    already=$(yq ".skills // [] | .[] | select(. == \"$skill_name\")" "$MANIFEST_FILE" 2>/dev/null || true)
+    if [[ -n "$already" ]]; then
+        return 0  # Already present
+    fi
+
+    yq -i ".skills += [\"$skill_name\"]" "$MANIFEST_FILE"
+}
+
+# List skills currently in the manifest
+manifest_list_skills() {
+    if ! manifest_exists; then
+        return
+    fi
+
+    if ! command -v yq &>/dev/null; then
+        return
+    fi
+
+    yq '.skills // [] | .[]' "$MANIFEST_FILE" 2>/dev/null
+}
+
+# ─── Init: create manifest from installed skills ────────────────────────────
+do_init_manifest() {
+    resolve_tools
+
+    if manifest_exists; then
+        warn "$MANIFEST_FILE already exists"
+        info "Current contents:"
+        cat "$MANIFEST_FILE"
+        echo ""
+        err "Use --force to overwrite, or edit the file manually"
+        if [[ "$FORCE" != true ]]; then
+            exit 1
+        fi
+        info "--force specified, overwriting..."
+    fi
+
+    # Collect unique skill names from all tool directories
+    local -A seen_skills
+    local skill_list=()
+
+    for tool in "${TOOLS[@]}"; do
+        local dest
+        dest="$(target_dir "$tool")"
+        if [[ ! -d "$dest" ]]; then
+            continue
+        fi
+        for skill_dir in "$dest"/*/; do
+            [[ -d "$skill_dir" ]] || continue
+            [[ -f "$skill_dir/SKILL.md" ]] || continue
+            local name
+            name="$(basename "$skill_dir")"
+            if [[ -z "${seen_skills[$name]+x}" ]]; then
+                seen_skills[$name]=1
+                skill_list+=("$name")
+            fi
+        done
+    done
+
+    if [[ ${#skill_list[@]} -eq 0 ]]; then
+        warn "No skills installed in project — creating manifest with empty skills list"
+    fi
+
+    # Build YAML by hand (no yq dependency for init)
+    {
+        echo "# .ai-manifest.yaml — Declares skills this project needs"
+        echo "# Run 'add_skills.sh --sync' to install from this manifest"
+        echo "# Run 'add_skills.sh --init' to regenerate from installed skills"
+        echo ""
+        echo "skills:"
+        for name in "${skill_list[@]}"; do
+            echo "  - $name"
+        done
+        if [[ ${#skill_list[@]} -eq 0 ]]; then
+            echo "  []"
+        fi
+        echo ""
+        echo "conventions: default"
+    } > "$MANIFEST_FILE"
+
+    ok "Created $MANIFEST_FILE with ${#skill_list[@]} skill(s)"
+    echo ""
+    cat "$MANIFEST_FILE"
+}
+
+# ─── Sync: install skills from manifest ──────────────────────────────────────
+do_sync() {
+    if ! manifest_exists; then
+        err "No $MANIFEST_FILE found in $(pwd)"
+        info "Create one with: $(basename "$0") --init"
+        exit 1
+    fi
+
+    # Resolve registry path
+    if [[ -z "$REGISTRY" ]]; then
+        local default_registry="${AI_CONFIG_DIR:-$HOME/Projects/ai_config}/registry.yaml"
+        if [[ -f "$default_registry" ]]; then
+            REGISTRY="$default_registry"
+        fi
+    fi
+
+    if [[ -n "$REGISTRY" ]] && [[ ! -f "$REGISTRY" ]]; then
+        err "Registry not found: $REGISTRY"
+        exit 1
+    fi
+
+    if ! command -v yq &>/dev/null; then
+        err "yq is required for --sync (brew install yq)"
+        exit 1
+    fi
+
+    resolve_tools
+
+    info "Syncing from $MANIFEST_FILE"
+    [[ -n "$REGISTRY" ]] && info "Registry: $REGISTRY"
+    echo ""
+
+    # Read skill list from manifest
+    local manifest_skills=()
+    while IFS= read -r name; do
+        [[ -z "$name" ]] && continue
+        manifest_skills+=("$name")
+    done < <(yq '.skills // [] | .[]' "$MANIFEST_FILE")
+
+    if [[ ${#manifest_skills[@]} -eq 0 ]]; then
+        warn "No skills listed in manifest"
+        exit 0
+    fi
+
+    info "Manifest requires ${#manifest_skills[@]} skill(s): ${manifest_skills[*]}"
+    echo ""
+
+    local linked=0 skipped=0 failed=0
+
+    for skill_name in "${manifest_skills[@]}"; do
+        # Try registry resolution first
+        local source_dir=""
+
+        if [[ -n "$REGISTRY" ]]; then
+            local skill_repo skill_path
+            skill_repo=$(yq ".skills.\"$skill_name\".repo // \"\"" "$REGISTRY" 2>/dev/null || true)
+            skill_path=$(yq ".skills.\"$skill_name\".path // \"\"" "$REGISTRY" 2>/dev/null || true)
+
+            if [[ -n "$skill_repo" && -n "$skill_path" ]]; then
+                local repo_local
+                repo_local=$(yq ".repos.\"$skill_repo\".local // \"\"" "$REGISTRY" 2>/dev/null || true)
+
+                if [[ -n "$repo_local" ]]; then
+                    source_dir="$(expand_path "$repo_local")/$skill_path"
+                fi
+            fi
+        fi
+
+        # Fallback: discover from sibling repos
+        if [[ -z "$source_dir" || ! -d "$source_dir" ]]; then
+            local found_via_discover=""
+            while IFS= read -r src; do
+                [[ -z "$src" ]] && continue
+                if [[ -d "$src/skills/$skill_name" && -f "$src/skills/$skill_name/SKILL.md" ]]; then
+                    found_via_discover="$src/skills/$skill_name"
+                    break
+                fi
+            done < <(discover_sources)
+            source_dir="$found_via_discover"
+        fi
+
+        if [[ -z "$source_dir" || ! -d "$source_dir" ]]; then
+            err "  [$skill_name] Not found in registry or discoverable sources — skipping"
+            ((failed++))
+            continue
+        fi
+
+        # Symlink into each tool directory
+        local changed=false
+        for tool in "${TOOLS[@]}"; do
+            local dest
+            dest="$(target_dir "$tool")"
+            mkdir -p "$dest"
+            local link="$dest/$skill_name"
+
+            if [[ -L "$link" ]]; then
+                local existing_target
+                existing_target=$(readlink "$link")
+                if [[ "$existing_target" == "$source_dir" ]]; then
+                    continue  # Already correct
+                else
+                    if [[ "$FORCE" != true ]]; then
+                        warn "  [$skill_name] Stale link in $dest (use --force to update)"
+                        continue
+                    fi
+                    rm "$link"
+                fi
+            elif [[ -d "$link" ]]; then
+                if [[ "$FORCE" != true ]]; then
+                    warn "  [$skill_name] Copied (non-symlink) version in $dest — skipping (use --force to replace)"
+                    ((skipped++))
+                    continue 2
+                fi
+                rm -rf "$link"
+            fi
+
+            ln -s "$source_dir" "$link"
+            changed=true
+        done
+
+        if $changed; then
+            ok "  [$skill_name] ← $source_dir"
+            ((linked++))
+        else
+            info "  [$skill_name] already linked"
+            ((skipped++))
+        fi
+    done
+
+    echo ""
+    info "Done: ${GREEN}$linked linked${RESET}, ${YELLOW}$skipped unchanged${RESET}, ${RED}$failed failed${RESET}"
+}
+
 # ─── Add a single skill ─────────────────────────────────────────────────────
 add_skill() {
     local skill_name="$1"
@@ -216,10 +473,25 @@ add_skill() {
     [[ -d "$dst" ]] && rm -rf "$dst"
     cp -R "$src" "$dst"
     ok "Added $skill_name → $dest_dir/"
+
+    # Persist to manifest if it exists
+    manifest_add_skill "$skill_name"
 }
 
 # ─── Main ────────────────────────────────────────────────────────────────────
 main() {
+    # Init manifest mode
+    if [[ "$INIT_MANIFEST" == true ]]; then
+        do_init_manifest
+        exit 0
+    fi
+
+    # Sync mode
+    if [[ "$SYNC_MODE" == true ]]; then
+        do_sync
+        exit 0
+    fi
+
     # Discover mode
     if [[ "$DISCOVER" == true ]]; then
         info "Searching for skill sources..."

@@ -17,6 +17,7 @@ SKILLS=()
 ALL_SKILLS=false
 TOOLS=()
 LIST_ONLY=false
+MANIFEST_FILE=".ai-manifest.yaml"
 
 # ─── Colors ──────────────────────────────────────────────────────────────────
 if [[ -t 1 ]]; then
@@ -107,6 +108,36 @@ list_installed() {
     done | sort
 }
 
+# ─── Manifest helpers ────────────────────────────────────────────────────────
+
+manifest_exists() {
+    [[ -f "$MANIFEST_FILE" ]]
+}
+
+# Remove a skill name from the manifest's skills list
+manifest_remove_skill() {
+    local skill_name="$1"
+
+    if ! manifest_exists; then
+        return 0  # No manifest — silently skip
+    fi
+
+    if ! command -v yq &>/dev/null; then
+        warn "yq not installed — skipping manifest update (brew install yq)"
+        return 0
+    fi
+
+    # Check if skill is in manifest
+    local present
+    present=$(yq ".skills // [] | .[] | select(. == \"$skill_name\")" "$MANIFEST_FILE" 2>/dev/null || true)
+    if [[ -z "$present" ]]; then
+        return 0  # Not in manifest
+    fi
+
+    yq -i "del(.skills[] | select(. == \"$skill_name\"))" "$MANIFEST_FILE"
+    info "  Removed $skill_name from $MANIFEST_FILE"
+}
+
 # ─── Remove a single skill ──────────────────────────────────────────────────
 remove_skill() {
     local skill_name="$1"
@@ -157,6 +188,9 @@ main() {
 
     local total_removed=0 total_notfound=0
 
+    # Track which skills we successfully remove (for manifest update)
+    local removed_names=()
+
     for tool in "${TOOLS[@]}"; do
         local dest
         dest="$(target_dir "$tool")"
@@ -189,6 +223,7 @@ main() {
         for skill_name in "${skill_names[@]}"; do
             if remove_skill "$skill_name" "$dest"; then
                 ((total_removed++))
+                removed_names+=("$skill_name")
             else
                 ((total_notfound++))
             fi
@@ -200,6 +235,18 @@ main() {
         fi
         echo ""
     done
+
+    # Update manifest: remove skills that were successfully deleted
+    if manifest_exists && [[ ${#removed_names[@]} -gt 0 ]]; then
+        # Deduplicate
+        local -A seen
+        for name in "${removed_names[@]}"; do
+            if [[ -z "${seen[$name]+x}" ]]; then
+                seen[$name]=1
+                manifest_remove_skill "$name"
+            fi
+        done
+    fi
 
     info "Done: ${RED}$total_removed removed${RESET}, ${YELLOW}$total_notfound not found${RESET}"
 }

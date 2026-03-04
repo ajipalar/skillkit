@@ -15,12 +15,17 @@ description: >-
   ~/.claude/skills/ or ~/.agents/skills/ directories. Discovers
   skill sources by searching for nearby directories that contain a
   skills/ subfolder with SKILL.md files (e.g., skillkit, skillsmith).
+  Supports .ai-manifest.yaml for declarative skill management:
+  --init snapshots installed skills into a manifest, --sync installs
+  from a manifest, and add/remove automatically keep the manifest
+  in sync when one exists.
 ---
 
 # Skill Manager
 
 Manage project-level skills: discover available skill sources,
-add skills to the current project, and remove installed skills.
+add skills to the current project, remove installed skills, and
+optionally track dependencies in `.ai-manifest.yaml`.
 
 ## Scope
 
@@ -36,7 +41,7 @@ explain this scope limitation and suggest using the repository's
 
 ## Workflow
 
-1. Determine the user's intent (add, remove, or list)
+1. Determine the user's intent (add, remove, list, init, or sync)
 2. Discover skill sources (for add/list)
 3. Present available or installed skills
 4. Execute the action with scripts
@@ -50,6 +55,8 @@ Classify the user's request:
 - **Remove skills** — skip to Step 4 (Remove).
 - **List available skills** — proceed to Step 2, present results,
   then ask what the user wants to do.
+- **Init manifest** — skip to Step 4 (Init).
+- **Sync from manifest** — skip to Step 4 (Sync).
 - **Project scope clarification** — the user describes their project
   or domain. Proceed to Step 2, then recommend relevant skills.
 - **Ambiguous** — ask the user whether they want to add, remove,
@@ -143,6 +150,10 @@ scripts/add_skills.sh --source <path> --all [--claude] [--codex]
 Default: targets both tools if their config directories exist,
 otherwise defaults to Claude Code.
 
+**Manifest behavior:** If `.ai-manifest.yaml` exists in the project
+root, added skills are automatically appended to it. If no manifest
+exists, the add proceeds normally without creating one.
+
 **Before running:** Confirm the action with the user if they
 haven't already specified exact skills. State which skills
 will be added and where.
@@ -165,8 +176,51 @@ List installed project skills:
 scripts/remove_skills.sh --list [--claude] [--codex]
 ```
 
+**Manifest behavior:** If `.ai-manifest.yaml` exists, removed
+skills are automatically deleted from it. If no manifest exists,
+the remove proceeds normally.
+
 **Before running:** Always confirm removal with the user.
 List which skills will be removed.
+
+### Init Manifest
+
+Create a `.ai-manifest.yaml` from the skills currently installed
+in the project:
+
+```bash
+scripts/add_skills.sh --init
+```
+
+This snapshots the current state. Use `--force` to overwrite an
+existing manifest.
+
+**When to suggest --init:**
+- User asks about tracking or documenting project dependencies
+- User wants to replicate their setup in another project
+- User mentions `.ai-manifest.yaml` or "manifest" for the first time
+  in a project that doesn't have one
+
+### Sync from Manifest
+
+Install all skills listed in `.ai-manifest.yaml`:
+
+```bash
+scripts/add_skills.sh --sync [--registry /path/to/registry.yaml]
+```
+
+**Resolution order:**
+1. Look up each skill in the registry file (if provided or
+   `$AI_CONFIG_DIR/registry.yaml` exists)
+2. Fall back to discovering skills in sibling directories
+
+Errors if no `.ai-manifest.yaml` exists. Suggest `--init` first.
+
+**When to suggest --sync:**
+- User cloned a project that has `.ai-manifest.yaml` but no
+  skills installed yet
+- User asks to "set up" or "install dependencies" for a project
+- User mentions their skills are missing or out of date
 
 ## Step 5: Confirm Result
 
@@ -174,6 +228,7 @@ After the script runs, report:
 
 - Which skills were added or removed
 - Which target directories were affected
+- Whether the manifest was updated (if applicable)
 - Any warnings (skill already existed, skill not found, etc.)
 
 ## Edge Cases
@@ -189,3 +244,11 @@ After the script runs, report:
 - **User asks for global install** — explain that this skill
   manages project-level skills only. Point to the repository's
   `install.sh` for global installs.
+- **No .ai-manifest.yaml and user runs --sync** — error with a
+  helpful message suggesting `--init` to create one.
+- **No .ai-manifest.yaml and user adds/removes skills** — works
+  normally, manifest is not created. Skill manager only persists
+  to the manifest if one already exists.
+- **yq not installed** — manifest operations warn and skip
+  gracefully. The core add/remove still works. Suggest
+  `brew install yq` for manifest support.
