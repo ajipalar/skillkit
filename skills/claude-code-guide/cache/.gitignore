@@ -1,0 +1,4 @@
+# Cached documentation fetched by fetch_docs.sh
+# These are raw fetched files for review — not curated reference content.
+*.md
+!.gitkeep
