@@ -11,3 +11,4 @@ dist/
 conversation-log.json
 *.un~
 *~
+skills/claude-code-guide/cache
